@@ -1,9 +1,13 @@
-// SortingArea.java
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
+import java.util.logging.*;
+
 /**
  * Sorting Area - Groups orders into batches and creates containers
  * Batches of 6 orders, containers hold 30 boxes max
  */
-class SortingArea {
+public class SortingArea {
     private static final Logger logger = Logger.getLogger(SortingArea.class.getName());
     private final BlockingQueue<Container> loadingQueue;
     private final List<Order> currentBatch = new ArrayList<>();

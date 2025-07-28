@@ -1,9 +1,12 @@
-// PackingStation.java
+import java.util.Random;
+import java.util.concurrent.*;
+import java.util.logging.*;
+
 /**
  * Packing Station - Processes one order at a time with scanner verification
  * Uses synchronized block to ensure single-order processing
  */
-class PackingStation {
+public class PackingStation {
     private static final Logger logger = Logger.getLogger(PackingStation.class.getName());
     private final Object packingLock;
     private final Random random = ThreadLocalRandom.current();

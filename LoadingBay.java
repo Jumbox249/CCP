@@ -1,9 +1,14 @@
-// LoadingBay.java
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
+import java.util.concurrent.locks.*;
+import java.util.logging.*;
+
 /**
  * Loading Bay - Manages 2 bays with truck capacity constraints
  * Each truck can hold 18 containers maximum
  */
-class LoadingBay {
+public class LoadingBay {
     private static final Logger logger = Logger.getLogger(LoadingBay.class.getName());
     private final Semaphore bayAvailability = new Semaphore(2); // 2 bays
     private final AtomicInteger truckCounter = new AtomicInteger(1);

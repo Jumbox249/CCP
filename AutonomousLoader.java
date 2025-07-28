@@ -1,11 +1,13 @@
-
-import java.awt.Container;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
+import java.util.logging.*;
 
-class AutonomousLoader {
+/**
+ * Autonomous Loader - Loads containers onto trucks
+ * Simulates random breakdowns and repairs
+ */
+public class AutonomousLoader {
     private static final Logger logger = Logger.getLogger(AutonomousLoader.class.getName());
     private final int loaderId;
     private final LoadingBay loadingBay;

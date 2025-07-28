@@ -1,13 +1,10 @@
-// OrderIntakeSystem.java
+import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.logging.*;
 
-/**
- * Order Intake System - Receives and verifies orders
- * Processes one order every 500ms with payment, inventory, and address verification
- */
-class OrderIntakeSystem {
+
+public class OrderIntakeSystem {
     private static final Logger logger = Logger.getLogger(OrderIntakeSystem.class.getName());
     private final BlockingQueue<Order> orderQueue;
     private final AtomicInteger rejectedOrders;

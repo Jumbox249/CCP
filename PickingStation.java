@@ -1,9 +1,9 @@
-// PickingStation.java
-/**
- * Picking Station - Handles concurrent order picking with robotic systems
- * Can process up to 4 orders concurrently
- */
-class PickingStation {
+import java.util.Random;
+import java.util.concurrent.*;
+import java.util.logging.*;
+
+
+public class PickingStation {
     private static final Logger logger = Logger.getLogger(PickingStation.class.getName());
     private final int stationId;
     private final Semaphore capacity;

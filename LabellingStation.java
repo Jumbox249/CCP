@@ -1,9 +1,13 @@
-// LabellingStation.java
+import java.util.Random;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
+import java.util.logging.*;
+
 /**
  * Labelling Station - Assigns tracking numbers and labels to packages
  * Includes scanner verification for label accuracy
  */
-class LabellingStation {
+public class LabellingStation {
     private static final Logger logger = Logger.getLogger(LabellingStation.class.getName());
     private final AtomicInteger trackingCounter = new AtomicInteger(100000);
     private final Random random = ThreadLocalRandom.current();
