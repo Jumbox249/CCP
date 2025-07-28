@@ -6,6 +6,7 @@ import java.util.logging.*;
 
 public class OrderIntakeSystem {
     private static final Logger logger = Logger.getLogger(OrderIntakeSystem.class.getName());
+    @SuppressWarnings("unused")
     private final BlockingQueue<Order> orderQueue;
     private final AtomicInteger rejectedOrders;
     private final Random random = ThreadLocalRandom.current();

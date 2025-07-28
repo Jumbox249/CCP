@@ -89,6 +89,7 @@ public class SwiftCartSimulation {
         monitorProgress();
     }
     
+    @SuppressWarnings("LoggerStringConcat")
     private void startOrderIntake() {
         orderIntakeExecutor.submit(() -> {
             Thread.currentThread().setName("OrderIntake-1");
@@ -261,6 +262,7 @@ public class SwiftCartSimulation {
         System.exit(0);
     }
     
+    @SuppressWarnings("LoggerStringConcat")
     private void shutdownExecutor(ExecutorService executor, String name) {
         executor.shutdown();
         try {
@@ -273,6 +275,7 @@ public class SwiftCartSimulation {
         }
     }
     
+    @SuppressWarnings("LoggerStringConcat")
     private void printFinalStatistics() {
         logger.info("=== FINAL SIMULATION STATISTICS ===");
         logger.info("Total orders processed: " + totalProcessed.get());
