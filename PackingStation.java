@@ -21,7 +21,7 @@ public class PackingStation {
                 Thread.currentThread().getName(), order.getId()));
             
             // Simulate packing process (2-4 seconds)
-            Thread.sleep(2000 + random.nextInt(2000));
+            TimeUnit.MILLISECONDS.sleep(2000 + random.nextInt(2000));
             
             // Scanner verification (2% chance of incorrect packing)
             if (random.nextDouble() < 0.02) {

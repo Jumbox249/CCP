@@ -30,7 +30,7 @@ public class AutonomousLoader {
         if (!operational) {
             logger.warning(String.format("Thread [%s]: Loader %d is broken down, waiting for repair",
                 Thread.currentThread().getName(), loaderId));
-            Thread.sleep(5000); // Wait for repair
+            TimeUnit.MILLISECONDS.sleep(5000); // Wait for repair
             operational = true;
             logger.info(String.format("Thread [%s]: Loader %d repaired and operational",
                 Thread.currentThread().getName(), loaderId));
@@ -42,7 +42,7 @@ public class AutonomousLoader {
             Thread.currentThread().getName(), loaderId, container.getId(), truck.getId()));
         
         // Simulate loading time (3-5 seconds)
-        Thread.sleep(3000 + random.nextInt(2000));
+        TimeUnit.MILLISECONDS.sleep(3000 + random.nextInt(2000));
         
         if (truck.loadContainer(container)) {
             logger.info(String.format("Thread [%s]: Container #%d loaded successfully onto truck #%d",

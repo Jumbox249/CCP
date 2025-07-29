@@ -22,7 +22,7 @@ public class PickingStation {
                 Thread.currentThread().getName(), order.getId(), stationId));
             
             // Simulate robotic picking time (1-3 seconds)
-            Thread.sleep(1000 + random.nextInt(2000));
+            TimeUnit.MILLISECONDS.sleep(1000 + random.nextInt(2000));
             
             // Check for missing items (5% chance)
             if (random.nextDouble() < 0.05) {
@@ -36,7 +36,7 @@ public class PickingStation {
             for (String item : order.getItems()) {
                 logger.info(String.format("Thread [%s]: Picked item '%s' for order #%d",
                     Thread.currentThread().getName(), item, order.getId()));
-                Thread.sleep(200); // 200ms per item
+                TimeUnit.MILLISECONDS.sleep(200); // 200ms per item
             }
             
             order.setStatus("PICKED");

@@ -21,7 +21,7 @@ public class LabellingStation {
         order.setTrackingNumber(trackingNumber);
         
         // Simulate labelling process (1-2 seconds)
-        Thread.sleep(1000 + random.nextInt(1000));
+        TimeUnit.MILLISECONDS.sleep(1000 + random.nextInt(1000));
         
         // Scanner verification (1% chance of label error)
         if (random.nextDouble() < 0.01) {

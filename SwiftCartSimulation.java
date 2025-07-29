@@ -1,13 +1,7 @@
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.logging.*;
 
-/**
- * Main simulation class for SwiftCart automated e-commerce center
- * Coordinates all stations and manages the order flow through the system
- */
 public class SwiftCartSimulation {
     private static final Logger logger = Logger.getLogger(SwiftCartSimulation.class.getName());
     private static final int TOTAL_ORDERS = 600;
@@ -50,22 +44,7 @@ public class SwiftCartSimulation {
     }
     
     private static void configureLogging() {
-        Logger rootLogger = Logger.getLogger("");
-        rootLogger.setLevel(Level.INFO);
-        
-        ConsoleHandler handler = new ConsoleHandler();
-        handler.setFormatter(new SimpleFormatter() {
-            @Override
-            public String format(LogRecord record) {
-                return String.format("[%s] %s: %s%n",
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS")),
-                    record.getLoggerName(),
-                    record.getMessage());
-            }
-        });
-        
-        rootLogger.removeHandler(rootLogger.getHandlers()[0]);
-        rootLogger.addHandler(handler);
+        BusinessLogger.configureSimpleLogging();
     }
     
     @SuppressWarnings("LoggerStringConcat")
@@ -100,8 +79,7 @@ public class SwiftCartSimulation {
                     Order order = intakeSystem.receiveOrder(i);
                     if (order != null) {
                         pickingQueue.offer(order);
-                        logger.info(String.format("Thread [%s]: Order #%d verified and sent to picking",
-                            Thread.currentThread().getName(), order.getId()));
+                        BusinessLogger.logOrderReceived(i);
                     }
                     Thread.sleep(500); // New order every 500ms
                 } catch (InterruptedException e) {
@@ -289,5 +267,59 @@ public class SwiftCartSimulation {
         
         logger.info("Simulation duration: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds");
         logger.info("=== SwiftCart Simulation Complete ===");
+    }
+    
+    // BusinessLogger class for clean output formatting
+    public static class BusinessLogger {
+        
+        public static void logOrderReceived(int orderId) {
+            System.out.printf("OrderIntake: Order #%d received (Thread: OrderThread-1)%n", orderId);
+        }
+        
+        public static void logOrderRejected(int orderId, String reason) {
+            System.out.printf("OrderIntake: Order #%d rejected - %s (Thread: OrderThread-1)%n", orderId, reason);
+        }
+        
+        public static void logOrderPicking(Order order, int stationId) {
+            System.out.printf("PickingStation: Picking Order #%d (Thread: Picker-%d)%n", order.getId(), stationId);
+        }
+        
+        public static void logOrderPacked(Order order) {
+            System.out.printf("PackingStation: Packed Order #%d (Thread: Packer-1)%n", order.getId());
+        }
+        
+        public static void logOrderLabelled(Order order, String trackingId) {
+            System.out.printf("LabellingStation: Labelled Order #%d with Tracking ID #%s (Thread: Labeller-2)%n", 
+                order.getId(), trackingId);
+        }
+        
+        public static void logOrderSorted(Order order) {
+            System.out.printf("Sorter: Added Order #%d to current batch (Thread: Sorter-1)%n", order.getId());
+        }
+        
+        public static void logContainerLoading(int loaderId, int containerId, int bayId) {
+            System.out.printf("Loader-%d: Moving Container #%d to Loading Bay-%d%n", loaderId, containerId, bayId);
+        }
+        
+        public static void logTruckDeparture(int truckId) {
+            System.out.printf("Truck-%d: Fully loaded with 18 containers. Departing to Distribution Centre.%n", truckId);
+        }
+        
+        public static void logTruckWaiting(int truckId) {
+            System.out.printf("Truck-%d: Waiting for loading bay to be free.%n", truckId);
+        }
+        
+        public static void logLoaderBreakdown(int loaderId) {
+            System.out.printf("Loader-%d: BREAKDOWN - Maintenance required%n", loaderId);
+        }
+        
+        public static void logLoaderRepaired(int loaderId) {
+            System.out.printf("Loader-%d: Repaired and operational%n", loaderId);
+        }
+        
+        public static void configureSimpleLogging() {
+            // Disable all existing logging to use direct System.out.println calls
+            Logger.getLogger("").setLevel(Level.OFF);
+        }
     }
 }
