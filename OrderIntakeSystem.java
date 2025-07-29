@@ -1,11 +1,8 @@
 import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
-import java.util.logging.*;
-
 
 public class OrderIntakeSystem {
-    private static final Logger logger = Logger.getLogger(OrderIntakeSystem.class.getName());
     @SuppressWarnings("unused")
     private final BlockingQueue<Order> orderQueue;
     private final AtomicInteger rejectedOrders;
@@ -18,16 +15,13 @@ public class OrderIntakeSystem {
     
     public Order receiveOrder(int orderId) {
         Order order = new Order(orderId);
-        logger.info(String.format("Thread [%s]: Receiving order #%d", 
-            Thread.currentThread().getName(), orderId));
         
         // Verify payment (95% success rate)
         boolean paymentVerified = random.nextDouble() < 0.95;
         order.setPaymentVerified(paymentVerified);
         
         if (!paymentVerified) {
-            logger.warning(String.format("Thread [%s]: Order #%d rejected - Payment verification failed",
-                Thread.currentThread().getName(), orderId));
+            SwiftCartSimulation.BusinessLogger.logOrderRejected(orderId, "Payment verification failed");
             order.setStatus("REJECTED_PAYMENT");
             rejectedOrders.incrementAndGet();
             return null;
@@ -38,8 +32,7 @@ public class OrderIntakeSystem {
         order.setInventoryAvailable(inventoryAvailable);
         
         if (!inventoryAvailable) {
-            logger.warning(String.format("Thread [%s]: Order #%d rejected - Inventory unavailable",
-                Thread.currentThread().getName(), orderId));
+            SwiftCartSimulation.BusinessLogger.logOrderRejected(orderId, "Inventory unavailable");
             order.setStatus("REJECTED_INVENTORY");
             rejectedOrders.incrementAndGet();
             return null;
@@ -50,16 +43,13 @@ public class OrderIntakeSystem {
         order.setAddressValid(addressValid);
         
         if (!addressValid) {
-            logger.warning(String.format("Thread [%s]: Order #%d rejected - Invalid address",
-                Thread.currentThread().getName(), orderId));
+            SwiftCartSimulation.BusinessLogger.logOrderRejected(orderId, "Invalid address");
             order.setStatus("REJECTED_ADDRESS");
             rejectedOrders.incrementAndGet();
             return null;
         }
         
         order.setStatus("VERIFIED");
-        logger.info(String.format("Thread [%s]: Order #%d verified successfully",
-            Thread.currentThread().getName(), orderId));
         return order;
     }
 }

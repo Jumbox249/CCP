@@ -47,10 +47,9 @@ public class SwiftCartSimulation {
         BusinessLogger.configureSimpleLogging();
     }
     
-    @SuppressWarnings("LoggerStringConcat")
     public void start() {
-        logger.info("=== SwiftCart Simulation Starting ===");
-        logger.info("Processing " + TOTAL_ORDERS + " orders through automated e-commerce center");
+        System.out.println("=== SwiftCart Simulation Starting ===");
+        System.out.println("Processing " + TOTAL_ORDERS + " orders through automated e-commerce center");
         
         // Start all stations
         startOrderIntake();
@@ -68,10 +67,9 @@ public class SwiftCartSimulation {
         monitorProgress();
     }
     
-    @SuppressWarnings("LoggerStringConcat")
     private void startOrderIntake() {
         orderIntakeExecutor.submit(() -> {
-            Thread.currentThread().setName("OrderIntake-1");
+            Thread.currentThread().setName("OrderThread-1");
             OrderIntakeSystem intakeSystem = new OrderIntakeSystem(orderQueue, totalRejected);
             
             for (int i = 1; i <= TOTAL_ORDERS && simulationRunning; i++) {
@@ -87,7 +85,7 @@ public class SwiftCartSimulation {
                     break;
                 }
             }
-            logger.info("Thread [" + Thread.currentThread().getName() + "]: Order intake completed");
+            System.out.println("Order intake completed");
         });
     }
     
@@ -102,10 +100,12 @@ public class SwiftCartSimulation {
                     try {
                         Order order = pickingQueue.poll(100, TimeUnit.MILLISECONDS);
                         if (order != null) {
+                            BusinessLogger.logOrderPicking(order, stationId);
                             Order pickedOrder = picker.pickOrder(order);
                             if (pickedOrder != null) {
                                 packingQueue.offer(pickedOrder);
                             } else {
+                                BusinessLogger.logOrderPickingRejected(order.getId(), "Missing items");
                                 totalRejected.incrementAndGet();
                             }
                         }
@@ -129,8 +129,10 @@ public class SwiftCartSimulation {
                     if (order != null) {
                         Order packedOrder = packer.packOrder(order);
                         if (packedOrder != null) {
+                            BusinessLogger.logOrderPacked(packedOrder);
                             labellingQueue.offer(packedOrder);
                         } else {
+                            BusinessLogger.logOrderPackingRejected(order.getId(), "Packing error");
                             totalRejected.incrementAndGet();
                         }
                     }
@@ -144,7 +146,7 @@ public class SwiftCartSimulation {
     
     private void startLabellingStation() {
         labellingExecutor.submit(() -> {
-            Thread.currentThread().setName("Labeller-1");
+            Thread.currentThread().setName("Labeller-2");
             LabellingStation labeller = new LabellingStation();
             
             while (simulationRunning) {
@@ -153,8 +155,10 @@ public class SwiftCartSimulation {
                     if (order != null) {
                         Order labelledOrder = labeller.labelOrder(order);
                         if (labelledOrder != null) {
+                            BusinessLogger.logOrderLabelled(labelledOrder, labelledOrder.getTrackingNumber());
                             sortingQueue.offer(labelledOrder);
                         } else {
+                            BusinessLogger.logOrderLabellingRejected(order.getId(), "Label error");
                             totalRejected.incrementAndGet();
                         }
                     }
@@ -214,17 +218,20 @@ public class SwiftCartSimulation {
         ScheduledExecutorService monitor = Executors.newScheduledThreadPool(1);
         monitor.scheduleAtFixedRate(() -> {
             long elapsed = System.currentTimeMillis() - startTime;
-            logger.info(String.format("=== Progress Update: %d seconds elapsed ===", elapsed / 1000));
-            logger.info(String.format("Orders processed: %d, Rejected: %d, Trucks loaded: %d",
-                totalProcessed.get(), totalRejected.get(), trucksLoaded.get()));
-            logger.info(String.format("Queue sizes - Picking: %d, Packing: %d, Labelling: %d, Sorting: %d, Loading: %d",
-                pickingQueue.size(), packingQueue.size(), labellingQueue.size(), 
-                sortingQueue.size(), loadingQueue.size()));
+            System.out.println("=== Progress Update: " + elapsed / 1000 + " seconds elapsed ===");
+            System.out.println("Orders processed: " + totalProcessed.get() + 
+                ", Rejected: " + totalRejected.get() + 
+                ", Trucks loaded: " + trucksLoaded.get());
+            System.out.println("Queue sizes - Picking: " + pickingQueue.size() + 
+                ", Packing: " + packingQueue.size() + 
+                ", Labelling: " + labellingQueue.size() + 
+                ", Sorting: " + sortingQueue.size() + 
+                ", Loading: " + loadingQueue.size());
         }, 30, 30, TimeUnit.SECONDS);
     }
     
     private void stopSimulation() {
-        logger.info("=== Simulation Time Limit Reached - Shutting Down ===");
+        System.out.println("=== Simulation Time Limit Reached - Shutting Down ===");
         simulationRunning = false;
         
         // Shutdown all executors
@@ -240,12 +247,11 @@ public class SwiftCartSimulation {
         System.exit(0);
     }
     
-    @SuppressWarnings("LoggerStringConcat")
     private void shutdownExecutor(ExecutorService executor, String name) {
         executor.shutdown();
         try {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                logger.warning(name + " executor did not terminate gracefully");
+                System.out.println(name + " executor did not terminate gracefully");
                 executor.shutdownNow();
             }
         } catch (InterruptedException e) {
@@ -253,48 +259,60 @@ public class SwiftCartSimulation {
         }
     }
     
-    @SuppressWarnings("LoggerStringConcat")
     private void printFinalStatistics() {
-        logger.info("=== FINAL SIMULATION STATISTICS ===");
-        logger.info("Total orders processed: " + totalProcessed.get());
-        logger.info("Total orders rejected: " + totalRejected.get());
-        logger.info("Total trucks loaded: " + trucksLoaded.get());
+        System.out.println("=== FINAL SIMULATION STATISTICS ===");
+        System.out.println("Total orders processed: " + totalProcessed.get());
+        System.out.println("Total orders rejected: " + totalRejected.get());
+        System.out.println("Total trucks loaded: " + trucksLoaded.get());
         
         if (totalProcessed.get() > 0) {
             double avgProcessingTime = totalProcessingTime.get() / (double) totalProcessed.get() / 1000.0;
-            logger.info(String.format("Average order processing time: %.2f seconds", avgProcessingTime));
+            System.out.printf("Average order processing time: %.2f seconds%n", avgProcessingTime);
         }
         
-        logger.info("Simulation duration: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds");
-        logger.info("=== SwiftCart Simulation Complete ===");
+        System.out.println("Simulation duration: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds");
+        System.out.println("=== SwiftCart Simulation Complete ===");
     }
     
     // BusinessLogger class for clean output formatting
     public static class BusinessLogger {
         
         public static void logOrderReceived(int orderId) {
-            System.out.printf("OrderIntake: Order #%d received (Thread: OrderThread-1)%n", orderId);
+            System.out.printf("OrderIntake: Order #%d received (Thread: %s)%n", orderId, Thread.currentThread().getName());
         }
         
         public static void logOrderRejected(int orderId, String reason) {
-            System.out.printf("OrderIntake: Order #%d rejected - %s (Thread: OrderThread-1)%n", orderId, reason);
+            System.out.printf("OrderIntake: Order #%d rejected - %s (Thread: %s)%n", orderId, reason, Thread.currentThread().getName());
         }
         
         public static void logOrderPicking(Order order, int stationId) {
-            System.out.printf("PickingStation: Picking Order #%d (Thread: Picker-%d)%n", order.getId(), stationId);
+            System.out.printf("PickingStation: Picking Order #%d (Thread: %s)%n", order.getId(), Thread.currentThread().getName());
+        }
+        
+        public static void logOrderPickingRejected(int orderId, String reason) {
+            System.out.printf("PickingStation: Order #%d rejected - %s (Thread: %s)%n", orderId, reason, Thread.currentThread().getName());
+        }
+        
+        public static void logOrderPackingRejected(int orderId, String reason) {
+            System.out.printf("PackingStation: Order #%d rejected - %s (Thread: %s)%n", orderId, reason, Thread.currentThread().getName());
+        }
+        
+        public static void logOrderLabellingRejected(int orderId, String reason) {
+            System.out.printf("LabellingStation: Order #%d rejected - %s (Thread: %s)%n", orderId, reason, Thread.currentThread().getName());
         }
         
         public static void logOrderPacked(Order order) {
-            System.out.printf("PackingStation: Packed Order #%d (Thread: Packer-1)%n", order.getId());
+            System.out.printf("PackingStation: Packed Order #%d (Thread: %s)%n", order.getId(), Thread.currentThread().getName());
         }
         
         public static void logOrderLabelled(Order order, String trackingId) {
-            System.out.printf("LabellingStation: Labelled Order #%d with Tracking ID #%s (Thread: Labeller-2)%n", 
-                order.getId(), trackingId);
+            System.out.printf("LabellingStation: Labelled Order #%d with Tracking ID #%s (Thread: %s)%n", 
+                order.getId(), trackingId, Thread.currentThread().getName());
         }
         
-        public static void logOrderSorted(Order order) {
-            System.out.printf("Sorter: Added Order #%d to current batch (Thread: Sorter-1)%n", order.getId());
+        public static void logOrderSorted(Order order, int batchNumber) {
+            System.out.printf("Sorter: Added Order #%d to Batch #%d (Thread: %s)%n", 
+                order.getId(), batchNumber, Thread.currentThread().getName());
         }
         
         public static void logContainerLoading(int loaderId, int containerId, int bayId) {
@@ -315,6 +333,10 @@ public class SwiftCartSimulation {
         
         public static void logLoaderRepaired(int loaderId) {
             System.out.printf("Loader-%d: Repaired and operational%n", loaderId);
+        }
+        
+        public static void logDispatchPaused(int containersAtBay) {
+            System.out.printf("Supervisor: Dispatch paused. %d containers at bay – waiting for truck%n", containersAtBay);
         }
         
         public static void configureSimpleLogging() {
