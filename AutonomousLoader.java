@@ -1,3 +1,4 @@
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
@@ -5,18 +6,24 @@ import java.util.concurrent.atomic.*;
 /**
  * Autonomous Loader - Loads containers onto trucks
  * Simulates random breakdowns and repairs
+ * 3 loaders work concurrently across 2 loading bays
  */
 public class AutonomousLoader {
     private final int loaderId;
     private final LoadingBay loadingBay;
-    private final AtomicInteger trucksLoaded;
+    private final AtomicInteger trucksDispatched;
+    private final List<Long> truckWaitTimes;
+    private final List<Long> truckLoadTimes;
     private final Random random = ThreadLocalRandom.current();
     private volatile boolean operational = true;
     
-    public AutonomousLoader(int loaderId, LoadingBay loadingBay, AtomicInteger trucksLoaded) {
+    public AutonomousLoader(int loaderId, LoadingBay loadingBay, AtomicInteger trucksDispatched,
+                           List<Long> truckWaitTimes, List<Long> truckLoadTimes) {
         this.loaderId = loaderId;
         this.loadingBay = loadingBay;
-        this.trucksLoaded = trucksLoaded;
+        this.trucksDispatched = trucksDispatched;
+        this.truckWaitTimes = truckWaitTimes;
+        this.truckLoadTimes = truckLoadTimes;
     }
     
     public void loadContainer(Container container) throws InterruptedException {
@@ -26,7 +33,7 @@ public class AutonomousLoader {
         }
         
         if (!operational) {
-            TimeUnit.MILLISECONDS.sleep(5000); // Wait for repair
+            TimeUnit.MILLISECONDS.sleep(5000); // Wait for repair (5 seconds)
             operational = true;
             SwiftCartSimulation.BusinessLogger.logLoaderRepaired(loaderId);
         }
@@ -43,8 +50,8 @@ public class AutonomousLoader {
         if (truck.loadContainer(container)) {            
             if (truck.isFull()) {
                 SwiftCartSimulation.BusinessLogger.logTruckDeparture(truck.getId());
-                loadingBay.truckDeparted(truck);
-                trucksLoaded.incrementAndGet();
+                loadingBay.truckDeparted(truck, truckWaitTimes, truckLoadTimes);
+                trucksDispatched.incrementAndGet();
             }
         }
     }

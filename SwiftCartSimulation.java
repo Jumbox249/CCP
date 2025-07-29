@@ -1,9 +1,9 @@
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.logging.*;
 
 public class SwiftCartSimulation {
-    private static final Logger logger = Logger.getLogger(SwiftCartSimulation.class.getName());
     private static final int TOTAL_ORDERS = 600;
     private static final int SIMULATION_DURATION_MS = 300000; // 5 minutes
     
@@ -16,18 +16,23 @@ public class SwiftCartSimulation {
     private final ExecutorService loadingExecutor = Executors.newFixedThreadPool(3);
     
     // Queues for inter-station communication
-    private final BlockingQueue<Order> orderQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Order> pickingQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Order> packingQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Order> labellingQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Order> sortingQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Container> loadingQueue = new LinkedBlockingQueue<>();
     
-    // Statistics tracking
+    // Enhanced Statistics tracking
     private final AtomicInteger totalProcessed = new AtomicInteger(0);
     private final AtomicInteger totalRejected = new AtomicInteger(0);
+    private final AtomicInteger boxesPacked = new AtomicInteger(0);
+    private final AtomicInteger containersCreated = new AtomicInteger(0);
+    private final AtomicInteger trucksDispatched = new AtomicInteger(0);
     private final AtomicLong totalProcessingTime = new AtomicLong(0);
-    private final AtomicInteger trucksLoaded = new AtomicInteger(0);
+    
+    // Truck timing statistics
+    private final List<Long> truckWaitTimes = Collections.synchronizedList(new ArrayList<>());
+    private final List<Long> truckLoadTimes = Collections.synchronizedList(new ArrayList<>());
     
     // Synchronization objects
     private final Semaphore pickingStationCapacity = new Semaphore(4);
@@ -70,7 +75,7 @@ public class SwiftCartSimulation {
     private void startOrderIntake() {
         orderIntakeExecutor.submit(() -> {
             Thread.currentThread().setName("OrderThread-1");
-            OrderIntakeSystem intakeSystem = new OrderIntakeSystem(orderQueue, totalRejected);
+            OrderIntakeSystem intakeSystem = new OrderIntakeSystem(totalRejected);
             
             for (int i = 1; i <= TOTAL_ORDERS && simulationRunning; i++) {
                 try {
@@ -130,6 +135,7 @@ public class SwiftCartSimulation {
                         Order packedOrder = packer.packOrder(order);
                         if (packedOrder != null) {
                             BusinessLogger.logOrderPacked(packedOrder);
+                            boxesPacked.incrementAndGet();
                             labellingQueue.offer(packedOrder);
                         } else {
                             BusinessLogger.logOrderPackingRejected(order.getId(), "Packing error");
@@ -173,7 +179,7 @@ public class SwiftCartSimulation {
     private void startSortingArea() {
         sortingExecutor.submit(() -> {
             Thread.currentThread().setName("Sorter-1");
-            SortingArea sorter = new SortingArea(loadingQueue);
+            SortingArea sorter = new SortingArea(loadingQueue, containersCreated);
             
             while (simulationRunning) {
                 try {
@@ -197,7 +203,7 @@ public class SwiftCartSimulation {
             final int loaderId = i;
             loadingExecutor.submit(() -> {
                 Thread.currentThread().setName("Loader-" + loaderId);
-                AutonomousLoader loader = new AutonomousLoader(loaderId, loadingBay, trucksLoaded);
+                AutonomousLoader loader = new AutonomousLoader(loaderId, loadingBay, trucksDispatched, truckWaitTimes, truckLoadTimes);
                 
                 while (simulationRunning) {
                     try {
@@ -221,7 +227,7 @@ public class SwiftCartSimulation {
             System.out.println("=== Progress Update: " + elapsed / 1000 + " seconds elapsed ===");
             System.out.println("Orders processed: " + totalProcessed.get() + 
                 ", Rejected: " + totalRejected.get() + 
-                ", Trucks loaded: " + trucksLoaded.get());
+                ", Trucks dispatched: " + trucksDispatched.get());
             System.out.println("Queue sizes - Picking: " + pickingQueue.size() + 
                 ", Packing: " + packingQueue.size() + 
                 ", Labelling: " + labellingQueue.size() + 
@@ -260,18 +266,41 @@ public class SwiftCartSimulation {
     }
     
     private void printFinalStatistics() {
-        System.out.println("=== FINAL SIMULATION STATISTICS ===");
+        System.out.println("\n=== FINAL SIMULATION STATISTICS ===");
         System.out.println("Total orders processed: " + totalProcessed.get());
         System.out.println("Total orders rejected: " + totalRejected.get());
-        System.out.println("Total trucks loaded: " + trucksLoaded.get());
+        System.out.println("Total boxes packed: " + boxesPacked.get());
+        System.out.println("Total containers filled: " + containersCreated.get());
+        System.out.println("Total trucks dispatched: " + trucksDispatched.get());
         
         if (totalProcessed.get() > 0) {
             double avgProcessingTime = totalProcessingTime.get() / (double) totalProcessed.get() / 1000.0;
             System.out.printf("Average order processing time: %.2f seconds%n", avgProcessingTime);
         }
         
+        // Truck timing statistics
+        if (!truckWaitTimes.isEmpty()) {
+            long minWait = Collections.min(truckWaitTimes);
+            long maxWait = Collections.max(truckWaitTimes);
+            double avgWait = truckWaitTimes.stream().mapToLong(Long::longValue).average().orElse(0.0);
+            System.out.printf("Truck wait times - Min: %.2fs, Max: %.2fs, Avg: %.2fs%n", 
+                minWait/1000.0, maxWait/1000.0, avgWait/1000.0);
+        } else {
+            System.out.println("No truck timing data available");
+        }
+        
+        if (!truckLoadTimes.isEmpty()) {
+            long minLoad = Collections.min(truckLoadTimes);
+            long maxLoad = Collections.max(truckLoadTimes);
+            double avgLoad = truckLoadTimes.stream().mapToLong(Long::longValue).average().orElse(0.0);
+            System.out.printf("Truck load times - Min: %.2fs, Max: %.2fs, Avg: %.2fs%n", 
+                minLoad/1000.0, maxLoad/1000.0, avgLoad/1000.0);
+        } else {
+            System.out.println("No truck load timing data available");
+        }
+        
         System.out.println("Simulation duration: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds");
-        System.out.println("=== SwiftCart Simulation Complete ===");
+        System.out.println("=== SwiftCart Simulation Complete ===\n");
     }
     
     // BusinessLogger class for clean output formatting

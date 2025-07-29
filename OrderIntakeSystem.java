@@ -2,14 +2,15 @@ import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
+/**
+ * Order Intake System - Receives and validates orders
+ * Verifies payment, inventory, and shipping address
+ */
 public class OrderIntakeSystem {
-    @SuppressWarnings("unused")
-    private final BlockingQueue<Order> orderQueue;
     private final AtomicInteger rejectedOrders;
     private final Random random = ThreadLocalRandom.current();
     
-    public OrderIntakeSystem(BlockingQueue<Order> orderQueue, AtomicInteger rejectedOrders) {
-        this.orderQueue = orderQueue;
+    public OrderIntakeSystem(AtomicInteger rejectedOrders) {
         this.rejectedOrders = rejectedOrders;
     }
     

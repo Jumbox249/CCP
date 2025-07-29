@@ -1,6 +1,10 @@
 import java.util.Random;
 import java.util.concurrent.*;
 
+/**
+ * Picking Station - Robotic arms pick orders into bins
+ * 4 concurrent threads with missing item verification
+ */
 public class PickingStation {
     private final int stationId;
     private final Semaphore capacity;

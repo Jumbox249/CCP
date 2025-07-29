@@ -13,10 +13,13 @@ public class SortingArea {
     private final AtomicInteger containerCounter = new AtomicInteger(1);
     private final AtomicInteger batchCounter = new AtomicInteger(1);
     private final Object sortingLock = new Object();
+    private final AtomicInteger containersCreated;
     
-    public SortingArea(BlockingQueue<Container> loadingQueue) {
+    public SortingArea(BlockingQueue<Container> loadingQueue, AtomicInteger containersCreated) {
         this.loadingQueue = loadingQueue;
+        this.containersCreated = containersCreated;
         this.currentContainer = new Container(containerCounter.getAndIncrement());
+        containersCreated.incrementAndGet();
     }
     
     public void sortOrder(Order order) throws InterruptedException {
@@ -40,6 +43,7 @@ public class SortingArea {
                 // Container is full, send to loading and create new one
                 loadingQueue.put(currentContainer);
                 currentContainer = new Container(containerCounter.getAndIncrement());
+                containersCreated.incrementAndGet();
                 currentContainer.addOrder(order);
             }
             order.setStatus("SORTED");

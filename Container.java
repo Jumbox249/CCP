@@ -3,6 +3,7 @@ import java.util.*;
 /**
  * Container class for holding multiple orders
  * Thread-safe implementation with synchronized methods
+ * Maximum capacity of 30 orders per container
  */
 public class Container {
     private final int id;
