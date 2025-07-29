@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.*;
 
 /**
  * Order Intake System - Receives and validates orders
- * Verifies payment, inventory, and shipping address
+ * Verifies payment, inventory availability, and shipping address
  */
 public class OrderIntakeSystem {
     private final AtomicInteger rejectedOrders;
@@ -17,7 +17,7 @@ public class OrderIntakeSystem {
     public Order receiveOrder(int orderId) {
         Order order = new Order(orderId);
         
-        // Verify payment (95% success rate)
+        // Verify payment (95% success rate - as originally specified)
         boolean paymentVerified = random.nextDouble() < 0.95;
         order.setPaymentVerified(paymentVerified);
         
@@ -28,7 +28,7 @@ public class OrderIntakeSystem {
             return null;
         }
         
-        // Verify inventory (90% success rate)
+        // Verify inventory (90% success rate - as originally specified)
         boolean inventoryAvailable = random.nextDouble() < 0.90;
         order.setInventoryAvailable(inventoryAvailable);
         
@@ -39,7 +39,7 @@ public class OrderIntakeSystem {
             return null;
         }
         
-        // Verify address (98% success rate)
+        // Verify address (98% success rate - as originally specified)
         boolean addressValid = random.nextDouble() < 0.98;
         order.setAddressValid(addressValid);
         

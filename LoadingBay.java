@@ -5,10 +5,9 @@ import java.util.concurrent.locks.*;
 
 /**
  * Loading Bay - Manages 2 bays with truck capacity constraints
- * Each truck can hold containers maximum
+ * Each truck can hold 18 containers maximum
  * Trucks can only be loaded when both a loader AND bay are free
- * Pauses loading when 20+ containers are waiting
- * FIXED: Proper truck counting and thread-safe dispatch pause
+ * CORRECTED: No dispatch pause - packing pauses instead when 10+ containers waiting
  */
 public class LoadingBay {
     private final Semaphore bayAvailability = new Semaphore(2, true); // 2 bays, fair access
@@ -16,23 +15,10 @@ public class LoadingBay {
     private final Map<Integer, Truck> currentTrucks = new ConcurrentHashMap<>();
     private final ReentrantLock bayLock = new ReentrantLock();
     private final AtomicInteger containersWaiting = new AtomicInteger(0);
-    private final AtomicInteger totalTrucksCreated = new AtomicInteger(0); // NEW: Track total trucks created
-    private final AtomicBoolean dispatchPaused = new AtomicBoolean(false);
+    private final AtomicInteger totalTrucksCreated = new AtomicInteger(0);
     
     public Truck getTruckForLoading(int containerQueueSize) throws InterruptedException {
-        // Check if dispatch should be paused due to container backlog
-        if (containerQueueSize >= 20) {
-            if (dispatchPaused.compareAndSet(false, true)) {
-                SwiftCartSimulation.BusinessLogger.logDispatchPaused(containerQueueSize);
-            }
-            // Actually pause loading operations
-            Thread.sleep(2000); // 2 second pause
-            return null; // Signal to skip this loading cycle
-        } else if (dispatchPaused.get() && containerQueueSize < 20) {
-            if (dispatchPaused.compareAndSet(true, false)) {
-                System.out.printf("Supervisor: Dispatch resumed. %d containers remaining in queue%n", containerQueueSize);
-            }
-        }
+        // No dispatch pause logic here - packing pauses instead
         
         bayLock.lock();
         try {
@@ -49,24 +35,23 @@ public class LoadingBay {
                 // Got a bay, create new truck
                 Truck newTruck = new Truck(truckCounter.getAndIncrement());
                 currentTrucks.put(newTruck.getId(), newTruck);
-                totalTrucksCreated.incrementAndGet(); // Track creation
+                totalTrucksCreated.incrementAndGet();
                 return newTruck;
             } else {
                 // No bay available - truck must wait
-                // FIXED: Pre-allocate the truck ID that will be used
-                int futureTruckId = truckCounter.get(); // This will be the next truck's ID
-                SwiftCartSimulation.BusinessLogger.logTruckWaiting(futureTruckId);
+                int futureTruckId = truckCounter.get();
+                System.out.printf("Truck-%d: Waiting for loading bay to be free.%n", futureTruckId);
                 
                 containersWaiting.incrementAndGet();
                 
                 // Block until a bay becomes available
-                bayAvailability.acquire(); // This will block until bay is free
+                bayAvailability.acquire();
                 containersWaiting.decrementAndGet();
                 
-                // Now we have a bay, create the truck with the ID we logged
+                // Now we have a bay, create the truck
                 Truck newTruck = new Truck(truckCounter.getAndIncrement());
                 currentTrucks.put(newTruck.getId(), newTruck);
-                totalTrucksCreated.incrementAndGet(); // Track creation
+                totalTrucksCreated.incrementAndGet();
                 return newTruck;
             }
         } finally {
@@ -99,17 +84,10 @@ public class LoadingBay {
         return containersWaiting.get();
     }
     
-    // NEW: Method to check if dispatch is currently paused
-    public boolean isDispatchPaused() {
-        return dispatchPaused.get();
-    }
-    
-    // NEW: Method to get total trucks created for statistics
     public int getTotalTrucksCreated() {
         return totalTrucksCreated.get();
     }
     
-    // NEW: Method to get currently active trucks
     public int getActiveTrucks() {
         return currentTrucks.size();
     }

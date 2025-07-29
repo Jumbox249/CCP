@@ -19,12 +19,16 @@ public class PickingStation {
         capacity.acquire(); // Acquire permit for concurrent processing
         
         try {
+            System.out.printf("PickingStation: Picking Order #%d (Thread: %s)%n", 
+                order.getId(), Thread.currentThread().getName());
+            
             // Simulate robotic picking time (1-3 seconds)
             TimeUnit.MILLISECONDS.sleep(1000 + random.nextInt(2000));
             
             // Check for missing items (5% chance)
             if (random.nextDouble() < 0.05) {
                 order.setStatus("REJECTED_MISSING_ITEMS");
+                SwiftCartSimulation.BusinessLogger.logOrderRejected(order.getId(), "Missing items during picking");
                 return null;
             }
             
