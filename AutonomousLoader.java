@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.*;
  * Autonomous Loader - Loads containers onto trucks
  * Simulates random breakdowns and repairs
  * 3 loaders work concurrently across 2 loading bays
+ * FIXED: Handles dispatch pause properly and accurate logging
  */
 public class AutonomousLoader {
     private final int loaderId;
@@ -26,7 +27,7 @@ public class AutonomousLoader {
         this.truckLoadTimes = truckLoadTimes;
     }
     
-    public void loadContainer(Container container) throws InterruptedException {
+    public void loadContainer(Container container, int containerQueueSize) throws InterruptedException {
         // Check for random breakdown (5% chance)
         if (operational && random.nextDouble() < 0.05) {
             simulateBreakdown();
@@ -38,7 +39,12 @@ public class AutonomousLoader {
             SwiftCartSimulation.BusinessLogger.logLoaderRepaired(loaderId);
         }
         
-        Truck truck = loadingBay.getTruckForLoading();
+        Truck truck = loadingBay.getTruckForLoading(containerQueueSize);
+        
+        // If truck is null, dispatch is paused - skip this cycle
+        if (truck == null) {
+            return;
+        }
         
         // Log container movement to bay
         int bayId = (truck.getId() % 2) + 1; // Simple bay assignment
@@ -49,7 +55,7 @@ public class AutonomousLoader {
         
         if (truck.loadContainer(container)) {            
             if (truck.isFull()) {
-                SwiftCartSimulation.BusinessLogger.logTruckDeparture(truck.getId());
+                SwiftCartSimulation.BusinessLogger.logTruckDeparture(truck.getId(), truck.getContainerCount());
                 loadingBay.truckDeparted(truck, truckWaitTimes, truckLoadTimes);
                 trucksDispatched.incrementAndGet();
             }
