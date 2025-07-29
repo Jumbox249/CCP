@@ -233,6 +233,8 @@ public class SwiftCartSimulation {
                 ", Labelling: " + labellingQueue.size() + 
                 ", Sorting: " + sortingQueue.size() + 
                 ", Loading: " + loadingQueue.size());
+            System.out.println("Loading Bay Status - Available bays: " + loadingBay.getAvailableBays() + 
+                ", Containers waiting: " + loadingBay.getWaitingContainers());
         }, 30, 30, TimeUnit.SECONDS);
     }
     
