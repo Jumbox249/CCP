@@ -20,7 +20,7 @@ public class SortingArea {
     // Sorting parameters
     private static final int BATCH_SIZE = 6; // 6 boxes per batch as per requirements
     private static final int CONTAINER_CAPACITY = 30; // 30 boxes per container
-    private static final int SORTING_TIME_PER_BOX = 150; // 150ms per box (reduced for better flow)
+    private static final int SORTING_TIME_PER_BOX = 15; // 15ms per box (aggressive optimization for 5-minute completion)
     private static final String[] REGIONAL_ZONES = {
         "North", "South", "East", "West", "Central"
     };

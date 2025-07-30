@@ -13,9 +13,9 @@ public class PickingStation {
     
     // Picking success rate (95% - 5% chance of missing items)
     private static final double PICKING_SUCCESS_RATE = 0.95;
-    private static final int BASE_PICKING_TIME = 1000; // 1 second base time
-    private static final int VARIABLE_PICKING_TIME = 2000; // +0-2 seconds variable
-    private static final int ITEM_VERIFICATION_TIME = 200; // 200ms per item
+    private static final int BASE_PICKING_TIME = 150; // 0.15 second base time (aggressive optimization)
+    private static final int VARIABLE_PICKING_TIME = 150; // +0-0.15 seconds variable (aggressive optimization)
+    private static final int ITEM_VERIFICATION_TIME = 15; // 15ms per item (aggressive optimization)
     
     /**
      * Constructor

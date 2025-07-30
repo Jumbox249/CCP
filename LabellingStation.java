@@ -13,9 +13,9 @@ public class LabellingStation {
     
     // Labelling parameters
     private static final double LABELLING_SUCCESS_RATE = 0.99; // 99% success (1% label errors)
-    private static final int BASE_LABELLING_TIME = 1000; // 1 second base time
-    private static final int VARIABLE_LABELLING_TIME = 1000; // +0-1 second variable
-    private static final int QUALITY_SCANNER_TIME = 800; // 800ms quality scan
+    private static final int BASE_LABELLING_TIME = 100; // 0.1 second base time (aggressive optimization)
+    private static final int VARIABLE_LABELLING_TIME = 100; // +0-0.1 second variable (aggressive optimization)
+    private static final int QUALITY_SCANNER_TIME = 100; // 100ms quality scan (aggressive optimization)
     private static final String TRACKING_PREFIX = "A"; // Tracking number prefix
     
     /**
@@ -85,7 +85,7 @@ public class LabellingStation {
     private boolean verifyLabel(Order order) {
         try {
             // Simulate label verification process
-            Thread.sleep(200); // 200ms verification time
+            Thread.sleep(25); // 25ms verification time (aggressive optimization)
             
             // Check if tracking number is properly formatted
             if (order.getTrackingNumber() == null || 

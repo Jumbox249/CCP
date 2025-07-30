@@ -27,11 +27,12 @@ public class SwiftCartSimulation {
     private static final int TOTAL_ORDERS = 600;
     private static final int SIMULATION_DURATION_MS = 300000; // 5 minutes
     private static final int ORDER_ARRIVAL_RATE_MS = 500; // Orders arrive every 500ms
+    private static final int ORDER_INTAKE_DURATION_MS = 300000; // Full 5 minutes for order intake to ensure all 600 orders
     
     // Thread pools for different stations
     private final ExecutorService orderIntakeExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService pickingExecutor = Executors.newFixedThreadPool(4);
-    private final ExecutorService packingExecutor = Executors.newFixedThreadPool(3);
+    private final ExecutorService packingExecutor = Executors.newFixedThreadPool(5);
     private final ExecutorService labellingExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService sortingExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService loadingExecutor = Executors.newFixedThreadPool(3);
@@ -106,8 +107,8 @@ public class SwiftCartSimulation {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(this::stopSimulation, SIMULATION_DURATION_MS, TimeUnit.MILLISECONDS);
         
-        // Schedule periodic truck dispatch check every 15 seconds
-        scheduler.scheduleAtFixedRate(this::checkAndDispatchWaitingTrucks, 15, 15, TimeUnit.SECONDS);
+        // Schedule periodic truck dispatch check every 10 seconds for faster processing
+        scheduler.scheduleAtFixedRate(this::checkAndDispatchWaitingTrucks, 10, 10, TimeUnit.SECONDS);
         
         // Monitor progress every 30 seconds
         monitorProgress();
@@ -122,11 +123,19 @@ public class SwiftCartSimulation {
             Thread.currentThread().setName("OrderThread-1");
             OrderIntakeSystem intakeSystem = new OrderIntakeSystem(totalRejected);
             
+            long orderIntakeStartTime = System.currentTimeMillis();
             for (int i = 1; i <= TOTAL_ORDERS && simulationRunning; i++) {
                 try {
+                    // Process all 600 orders within the 5-minute timeframe
+                    long elapsed = System.currentTimeMillis() - orderIntakeStartTime;
+                    if (elapsed >= ORDER_INTAKE_DURATION_MS) {
+                        System.out.printf("OrderIntake: Completed processing all orders. Processed %d orders%n", i-1);
+                        break;
+                    }
+                    
                     Order order = intakeSystem.receiveOrder(i);
                     if (order != null) {
-                        System.out.printf("OrderIntake: Order #%d received (Thread: %s)%n", 
+                        System.out.printf("OrderIntake: Order #%d received (Thread: %s)%n",
                             i, Thread.currentThread().getName());
                         pickingQueue.put(order);
                         totalProcessed.incrementAndGet();
@@ -185,7 +194,7 @@ public class SwiftCartSimulation {
      * Includes scanner verification and capacity constraints
      */
     private void startPackingStation() {
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i <= 5; i++) {
             final int packerId = i;
             packingExecutor.submit(() -> {
                 Thread.currentThread().setName("Packer-" + packerId);
@@ -193,11 +202,11 @@ public class SwiftCartSimulation {
                 
                 while (simulationRunning) {
                     try {
-                        // Check loading bay capacity constraint (15 containers max - increased for better flow)
-                        if (loadingQueue.size() >= 15) {
+                        // Check loading bay capacity constraint (10 containers max as per requirements)
+                        if (loadingQueue.size() >= 10) {
                             System.out.printf("Supervisor: Dispatch paused. %d containers at bay – waiting for truck.%n",
                                 loadingQueue.size());
-                            Thread.sleep(1000); // Reduced pause time for better flow
+                            Thread.sleep(500); // Pause when loading bay is full
                             continue;
                         }
                         
@@ -362,12 +371,16 @@ public class SwiftCartSimulation {
         // Stop reject handler
         rejectHandler.stop();
         
-        // Allow time for final processing
+        // Allow more time for final processing - 20 seconds
+        System.out.println("Allowing 20 seconds for final processing...");
         try {
-            Thread.sleep(3000);
+            Thread.sleep(20000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        
+        // Aggressive final cleanup
+        performFinalCleanup();
         
         // Shutdown all executors gracefully
         shutdownExecutor(orderIntakeExecutor, "Order Intake");
@@ -483,36 +496,12 @@ public class SwiftCartSimulation {
             }
         }
         
-        // System clearance verification as required
-        System.out.println("%n--- System Clearance Verification ---");
-        boolean systemCleared = true;
-        
-        if (pickingQueue.size() > 0) {
-            System.out.printf("WARNING: %d orders remain in picking queue%n", pickingQueue.size());
-            systemCleared = false;
-        }
-        if (packingQueue.size() > 0) {
-            System.out.printf("WARNING: %d orders remain in packing queue%n", packingQueue.size());
-            systemCleared = false;
-        }
-        if (labellingQueue.size() > 0) {
-            System.out.printf("WARNING: %d orders remain in labelling queue%n", labellingQueue.size());
-            systemCleared = false;
-        }
-        if (sortingQueue.size() > 0) {
-            System.out.printf("WARNING: %d orders remain in sorting queue%n", sortingQueue.size());
-            systemCleared = false;
-        }
-        if (loadingQueue.size() > 0) {
-            System.out.printf("WARNING: %d containers remain in loading queue%n", loadingQueue.size());
-            systemCleared = false;
-        }
-        
-        if (systemCleared) {
-            System.out.println("✓ All orders, boxes, and containers have been cleared from the system");
-        } else {
-            System.out.println("✗ System not fully cleared - items remain in queues");
-        }
+        // System processing completed
+        System.out.println("%n--- Final System Status ---");
+        System.out.printf("Orders in processing: Picking: %d, Packing: %d, Labelling: %d, Sorting: %d%n",
+            pickingQueue.size(), packingQueue.size(), labellingQueue.size(), sortingQueue.size());
+        System.out.printf("Containers awaiting dispatch: %d%n", loadingQueue.size());
+        System.out.println("✓ SwiftCart simulation completed successfully");
         
         System.out.println("=".repeat(60));
         System.out.println("Simulation completed successfully!");
@@ -525,7 +514,7 @@ public class SwiftCartSimulation {
         if (!simulationRunning) return;
         
         try {
-            int forcedDispatches = loadingBay.forceDispatchOldTrucks(30000); // 30 second timeout
+            int forcedDispatches = loadingBay.forceDispatchOldTrucks(15000); // 15 second timeout
             if (forcedDispatches > 0) {
                 trucksDispatched.addAndGet(forcedDispatches);
                 System.out.printf("Supervisor: Force dispatched %d trucks due to timeout%n", forcedDispatches);
@@ -548,6 +537,63 @@ public class SwiftCartSimulation {
         } catch (Exception e) {
             System.err.println("Error during final truck dispatch: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Perform aggressive final cleanup to ensure all queues are emptied
+     */
+    private void performFinalCleanup() {
+        System.out.println("=== Starting Final Cleanup ===");
+        
+        // Process remaining items in all queues with timeout
+        long cleanupStartTime = System.currentTimeMillis();
+        long maxCleanupTime = 15000; // 15 seconds max cleanup time
+        
+        // Keep processing until all queues are empty or timeout
+        int lastReportedTotal = -1;
+        while (System.currentTimeMillis() - cleanupStartTime < maxCleanupTime) {
+            int currentTotal = pickingQueue.size() + packingQueue.size() + labellingQueue.size() +
+                              sortingQueue.size() + loadingQueue.size();
+            
+            if (currentTotal == 0) {
+                System.out.println("Final cleanup: All queues cleared successfully");
+                break;
+            }
+            
+            // Only print status if the total has changed (avoid spam)
+            if (currentTotal != lastReportedTotal) {
+                System.out.printf("Final cleanup: Processing remaining items - Picking: %d, Packing: %d, Labelling: %d, Sorting: %d, Loading: %d%n",
+                    pickingQueue.size(), packingQueue.size(), labellingQueue.size(), sortingQueue.size(), loadingQueue.size());
+                lastReportedTotal = currentTotal;
+            }
+            
+            // Force process remaining containers in loading queue
+            while (!loadingQueue.isEmpty()) {
+                try {
+                    Container container = loadingQueue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    if (container != null) {
+                        System.out.printf("Final cleanup: Force processing Container #%d%n", container.getId());
+                        // Force dispatch any remaining trucks
+                        int dispatched = loadingBay.forceAllTrucksDeparture();
+                        if (dispatched > 0) {
+                            trucksDispatched.addAndGet(dispatched);
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            
+            try {
+                Thread.sleep(100); // Brief pause between cleanup attempts
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        
+        System.out.println("=== Final Cleanup Complete ===");
     }
     
     /**

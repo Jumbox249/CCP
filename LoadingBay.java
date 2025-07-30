@@ -89,20 +89,20 @@ public class LoadingBay {
             currentTrucks.remove(truck.getId());
             bayAvailability.release(); // Free up the bay for next truck
             
-            // Calculate truck timing statistics
-            long currentTime = System.currentTimeMillis();
-            long totalTime = currentTime - truck.getCreationTime();
+            // Calculate proper truck timing statistics
+            long waitTime = truck.getWaitTime();
+            long loadTime = truck.getLoadingTime();
             
-            // Record timing statistics
-            if (waitTimes != null) {
-                waitTimes.add(totalTime);
+            // Record timing statistics with proper separation
+            if (waitTimes != null && waitTime > 0) {
+                waitTimes.add(waitTime);
             }
-            if (loadTimes != null) {
-                loadTimes.add(totalTime); // Simplified - total time as load time
+            if (loadTimes != null && loadTime > 0) {
+                loadTimes.add(loadTime);
             }
             
-            System.out.printf("LoadingBay: Truck-%d departed, bay freed (Thread: %s)%n", 
-                truck.getId(), Thread.currentThread().getName());
+            System.out.printf("LoadingBay: Truck-%d departed (Wait: %.2fs, Load: %.2fs), bay freed (Thread: %s)%n",
+                truck.getId(), waitTime / 1000.0, loadTime / 1000.0, Thread.currentThread().getName());
             
         } finally {
             bayLock.unlock();
@@ -195,8 +195,9 @@ public class LoadingBay {
             
             for (Truck truck : new ArrayList<>(currentTrucks.values())) {
                 long truckAge = currentTime - truck.getCreationTime();
-                if (truckAge > maxWaitTimeMs && truck.getContainerCount() > 0) {
-                    System.out.printf("LoadingBay: Force dispatching Truck-%d (waited %.1f seconds with %d containers)%n", 
+                // Reduced timeout for faster dispatch - 15 seconds instead of 30
+                if (truckAge > 15000 && truck.getContainerCount() > 0) {
+                    System.out.printf("LoadingBay: Force dispatching Truck-%d (waited %.1f seconds with %d containers)%n",
                         truck.getId(), truckAge / 1000.0, truck.getContainerCount());
                     
                     truck.setStatus("FORCE_DEPARTED");
