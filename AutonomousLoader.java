@@ -12,10 +12,11 @@ public class AutonomousLoader {
     private final Random random = ThreadLocalRandom.current();
     private volatile boolean operational = true;
     
-    private static final double BREAKDOWN_PROBABILITY = 0.05;
-    private static final int REPAIR_TIME_MS = 5000;
-    private static final int BASE_LOADING_TIME = 300;
-    private static final int VARIABLE_LOADING_TIME = 200;
+    // Loader parameters
+    private static final double BREAKDOWN_PROBABILITY = 0.05; // 5% chance of breakdown
+    private static final int REPAIR_TIME_MS = 5000; // 5 seconds repair time
+    private static final int BASE_LOADING_TIME = 300; // 0.3 second base loading time (aggressive optimization)
+    private static final int VARIABLE_LOADING_TIME = 200; // +0-0.2 seconds variable (aggressive optimization)
     
     public AutonomousLoader(int loaderId, LoadingBay loadingBay, AtomicInteger trucksDispatched,
                            List<Long> truckWaitTimes, List<Long> truckLoadTimes) {
@@ -57,8 +58,9 @@ public class AutonomousLoader {
         if (truck.isFull()) {
             dispatchTruck(truck);
         } else {
+            // Check if truck should be dispatched due to timeout (5 seconds max wait for faster processing)
             long truckAge = System.currentTimeMillis() - truck.getCreationTime();
-            if (truckAge > 5000 && truck.getContainerCount() > 0) {
+            if (truckAge > 5000 && truck.getContainerCount() > 0) { // 5 seconds timeout
                 System.out.printf("Loader-%d: Dispatching Truck-%d due to timeout (%d containers, %.1f seconds old) (Thread: %s)%n",
                     loaderId, truck.getId(), truck.getContainerCount(), truckAge / 1000.0, Thread.currentThread().getName());
                 dispatchTruck(truck);

@@ -5,9 +5,9 @@ import java.util.logging.*;
 
 public class SwiftCartSimulation {
     private static final int TOTAL_ORDERS = 600;
-    private static final int SIMULATION_DURATION_MS = 300000;
-    private static final int ORDER_ARRIVAL_RATE_MS = 500;
-    private static final int ORDER_INTAKE_DURATION_MS = 300000;
+    private static final int SIMULATION_DURATION_MS = 300000; // 5 minutes
+    private static final int ORDER_ARRIVAL_RATE_MS = 500; // Orders arrive every 500ms
+    private static final int ORDER_INTAKE_DURATION_MS = 300000; // Full 5 minutes for order intake to ensure all 600 orders
     
     private final ExecutorService orderIntakeExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService pickingExecutor = Executors.newFixedThreadPool(4);
@@ -68,6 +68,7 @@ public class SwiftCartSimulation {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(this::stopSimulation, SIMULATION_DURATION_MS, TimeUnit.MILLISECONDS);
         
+        // Schedule periodic truck dispatch check every 10 seconds for faster processing
         scheduler.scheduleAtFixedRate(this::checkAndDispatchWaitingTrucks, 10, 10, TimeUnit.SECONDS);
         
         monitorProgress();
@@ -81,6 +82,7 @@ public class SwiftCartSimulation {
             long orderIntakeStartTime = System.currentTimeMillis();
             for (int i = 1; i <= TOTAL_ORDERS && simulationRunning; i++) {
                 try {
+                    // Process all 600 orders within the 5-minute timeframe
                     long elapsed = System.currentTimeMillis() - orderIntakeStartTime;
                     if (elapsed >= ORDER_INTAKE_DURATION_MS) {
                         System.out.printf("OrderIntake: Completed processing all orders. Processed %d orders%n", i-1);
@@ -147,10 +149,11 @@ public class SwiftCartSimulation {
                 
                 while (simulationRunning) {
                     try {
+                        // Check loading bay capacity constraint (10 containers max as per requirements)
                         if (loadingQueue.size() >= 10) {
                             System.out.printf("Supervisor: Dispatch paused. %d containers at bay – waiting for truck.%n",
                                 loadingQueue.size());
-                            Thread.sleep(500);
+                            Thread.sleep(500); // Pause when loading bay is full
                             continue;
                         }
                         
@@ -292,6 +295,7 @@ public class SwiftCartSimulation {
         
         rejectHandler.stop();
         
+        // Allow more time for final processing - 20 seconds
         System.out.println("Allowing 20 seconds for final processing...");
         try {
             Thread.sleep(20000);
@@ -299,8 +303,10 @@ public class SwiftCartSimulation {
             Thread.currentThread().interrupt();
         }
         
+        // Aggressive final cleanup
         performFinalCleanup();
         
+        // Shutdown all executors gracefully
         shutdownExecutor(orderIntakeExecutor, "Order Intake");
         shutdownExecutor(pickingExecutor, "Picking");
         shutdownExecutor(packingExecutor, "Packing");
@@ -403,6 +409,7 @@ public class SwiftCartSimulation {
             }
         }
         
+        // System processing completed
         System.out.println("%n--- Final System Status ---");
         System.out.printf("Orders in processing: Picking: %d, Packing: %d, Labelling: %d, Sorting: %d%n",
             pickingQueue.size(), packingQueue.size(), labellingQueue.size(), sortingQueue.size());
@@ -417,7 +424,7 @@ public class SwiftCartSimulation {
         if (!simulationRunning) return;
         
         try {
-            int forcedDispatches = loadingBay.forceDispatchOldTrucks(15000);
+            int forcedDispatches = loadingBay.forceDispatchOldTrucks(15000); // 15 second timeout
             if (forcedDispatches > 0) {
                 trucksDispatched.addAndGet(forcedDispatches);
                 System.out.printf("Supervisor: Force dispatched %d trucks due to timeout%n", forcedDispatches);
@@ -439,12 +446,17 @@ public class SwiftCartSimulation {
         }
     }
     
+    /**
+     * Perform aggressive final cleanup to ensure all queues are emptied
+     */
     private void performFinalCleanup() {
         System.out.println("=== Starting Final Cleanup ===");
         
+        // Process remaining items in all queues with timeout
         long cleanupStartTime = System.currentTimeMillis();
-        long maxCleanupTime = 15000;
+        long maxCleanupTime = 15000; // 15 seconds max cleanup time
         
+        // Keep processing until all queues are empty or timeout
         int lastReportedTotal = -1;
         while (System.currentTimeMillis() - cleanupStartTime < maxCleanupTime) {
             int currentTotal = pickingQueue.size() + packingQueue.size() + labellingQueue.size() +
@@ -455,17 +467,20 @@ public class SwiftCartSimulation {
                 break;
             }
             
+            // Only print status if the total has changed (avoid spam)
             if (currentTotal != lastReportedTotal) {
                 System.out.printf("Final cleanup: Processing remaining items - Picking: %d, Packing: %d, Labelling: %d, Sorting: %d, Loading: %d%n",
                     pickingQueue.size(), packingQueue.size(), labellingQueue.size(), sortingQueue.size(), loadingQueue.size());
                 lastReportedTotal = currentTotal;
             }
             
+            // Force process remaining containers in loading queue
             while (!loadingQueue.isEmpty()) {
                 try {
                     Container container = loadingQueue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS);
                     if (container != null) {
                         System.out.printf("Final cleanup: Force processing Container #%d%n", container.getId());
+                        // Force dispatch any remaining trucks
                         int dispatched = loadingBay.forceAllTrucksDeparture();
                         if (dispatched > 0) {
                             trucksDispatched.addAndGet(dispatched);
@@ -478,7 +493,7 @@ public class SwiftCartSimulation {
             }
             
             try {
-                Thread.sleep(100);
+                Thread.sleep(100); // Brief pause between cleanup attempts
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;

@@ -4,7 +4,7 @@ public class Truck {
     private final int id;
     private final List<Container> containers = new ArrayList<>();
     private final long creationTime;
-    private volatile long firstContainerLoadTime = 0;
+    private volatile long firstContainerLoadTime = 0; // Track when loading actually starts
     private volatile String destination;
     private volatile String status;
     
@@ -20,6 +20,7 @@ public class Truck {
     
     public synchronized boolean loadContainer(Container container) {
         if (containers.size() < MAX_CONTAINERS) {
+            // Track when loading actually starts (first container)
             if (containers.isEmpty()) {
                 firstContainerLoadTime = System.currentTimeMillis();
             }
@@ -51,28 +52,48 @@ public class Truck {
         return containers.size();
     }
     
+    /**
+     * Get truck creation time
+     * @return Timestamp when truck was created
+     */
     public long getCreationTime() {
         return creationTime;
     }
     
+    /**
+     * Get time when first container was loaded (loading started)
+     * @return Timestamp when loading began, or 0 if no containers loaded
+     */
     public long getFirstContainerLoadTime() {
         return firstContainerLoadTime;
     }
     
+    /**
+     * Get wait time (time from creation to first container load)
+     * @return Wait time in milliseconds
+     */
     public long getWaitTime() {
         if (firstContainerLoadTime == 0) {
-            return System.currentTimeMillis() - creationTime;
+            return System.currentTimeMillis() - creationTime; // Still waiting
         }
         return firstContainerLoadTime - creationTime;
     }
     
+    /**
+     * Get loading time (time from first container to departure)
+     * @return Loading time in milliseconds, or 0 if not departed
+     */
     public long getLoadingTime() {
         if (firstContainerLoadTime == 0) {
-            return 0;
+            return 0; // No loading started yet
         }
         return System.currentTimeMillis() - firstContainerLoadTime;
     }
     
+    /**
+     * Get truck destination
+     * @return Destination name
+     */
     public String getDestination() {
         return destination;
     }

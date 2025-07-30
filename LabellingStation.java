@@ -6,11 +6,12 @@ public class LabellingStation {
     private final AtomicInteger trackingCounter = new AtomicInteger(100000);
     private final Random random = ThreadLocalRandom.current();
     
-    private static final double LABELLING_SUCCESS_RATE = 0.99;
-    private static final int BASE_LABELLING_TIME = 100;
-    private static final int VARIABLE_LABELLING_TIME = 100;
-    private static final int QUALITY_SCANNER_TIME = 100;
-    private static final String TRACKING_PREFIX = "A";
+    // Labelling parameters
+    private static final double LABELLING_SUCCESS_RATE = 0.99; // 99% success (1% label errors)
+    private static final int BASE_LABELLING_TIME = 100; // 0.1 second base time (aggressive optimization)
+    private static final int VARIABLE_LABELLING_TIME = 100; // +0-0.1 second variable (aggressive optimization)
+    private static final int QUALITY_SCANNER_TIME = 100; // 100ms quality scan (aggressive optimization)
+    private static final String TRACKING_PREFIX = "A"; // Tracking number prefix
     
     public Order labelOrder(Order order) throws InterruptedException {
         System.out.printf("LabellingStation: Starting to label Order #%d (Thread: %s)%n",
@@ -57,7 +58,8 @@ public class LabellingStation {
     
     private boolean verifyLabel(Order order) {
         try {
-            Thread.sleep(25);
+            // Simulate label verification process
+            Thread.sleep(25); // 25ms verification time (aggressive optimization)
             
             if (order.getTrackingNumber() == null ||
                 !order.getTrackingNumber().startsWith(TRACKING_PREFIX)) {

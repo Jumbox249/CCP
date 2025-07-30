@@ -7,9 +7,9 @@ public class PickingStation {
     private final Random random = ThreadLocalRandom.current();
     
     private static final double PICKING_SUCCESS_RATE = 0.95;
-    private static final int BASE_PICKING_TIME = 150;
-    private static final int VARIABLE_PICKING_TIME = 150;
-    private static final int ITEM_VERIFICATION_TIME = 15;
+    private static final int BASE_PICKING_TIME = 150; // 0.15 second base time (aggressive optimization)
+    private static final int VARIABLE_PICKING_TIME = 150; // +0-0.15 seconds variable (aggressive optimization)
+    private static final int ITEM_VERIFICATION_TIME = 15; // 15ms per item (aggressive optimization)
     
     public PickingStation(int stationId, Semaphore capacity) {
         this.stationId = stationId;

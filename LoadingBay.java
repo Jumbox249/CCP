@@ -62,9 +62,11 @@ public class LoadingBay {
             currentTrucks.remove(truck.getId());
             bayAvailability.release();
             
+            // Calculate proper truck timing statistics
             long waitTime = truck.getWaitTime();
             long loadTime = truck.getLoadingTime();
             
+            // Record timing statistics with proper separation
             if (waitTimes != null && waitTime > 0) {
                 waitTimes.add(waitTime);
             }
@@ -128,6 +130,7 @@ public class LoadingBay {
             
             for (Truck truck : new ArrayList<>(currentTrucks.values())) {
                 long truckAge = currentTime - truck.getCreationTime();
+                // Reduced timeout for faster dispatch - 15 seconds instead of 30
                 if (truckAge > 15000 && truck.getContainerCount() > 0) {
                     System.out.printf("LoadingBay: Force dispatching Truck-%d (waited %.1f seconds with %d containers)%n",
                         truck.getId(), truckAge / 1000.0, truck.getContainerCount());
