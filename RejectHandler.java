@@ -66,4 +66,22 @@ public class RejectHandler {
     public int getPendingRejects() {
         return rejectedOrders.size();
     }
+    /**
+     * Logs audit information for rejected orders with timing details
+     */
+    public void logRejectionAudit(Order order, double processingTimeSeconds) {
+        System.out.printf("RejectHandler: AUDIT LOG - Order #%d rejected after %.2f seconds - Status: %s (Thread: %s)%n",
+            order.getId(), processingTimeSeconds, order.getStatus(), Thread.currentThread().getName());
+    }
+    
+    /**
+     * Enhanced rejection processing with audit logging
+     */
+    public void processRejectedOrderWithAudit(Order order, double processingTimeSeconds) {
+        // Log the rejection details with timing
+        logRejectionAudit(order, processingTimeSeconds);
+        
+        // Process the rejected order
+        processRejectedOrder(order);
+    }
 }

@@ -4,10 +4,10 @@ import java.util.concurrent.atomic.*;
 import java.util.concurrent.locks.*;
 
 /**
- * Loading Bay - Manages 2 bays with truck capacity constraints
+ * Loading Bay - Manages 2 loading bays with truck capacity constraints
  * Each truck can hold 18 containers maximum
  * Trucks can only be loaded when both a loader AND bay are free
- * CORRECTED: No dispatch pause - packing pauses instead when 10+ containers waiting
+ * Implements congestion handling and wait time tracking
  */
 public class LoadingBay {
     private final Semaphore bayAvailability = new Semaphore(2, true); // 2 bays, fair access
@@ -17,9 +17,19 @@ public class LoadingBay {
     private final AtomicInteger containersWaiting = new AtomicInteger(0);
     private final AtomicInteger totalTrucksCreated = new AtomicInteger(0);
     
+    // Loading bay parameters
+    private static final int MAX_BAYS = 2;
+    private static final int CONTAINERS_PER_TRUCK = 18;
+    private static final int LOADING_TIME_PER_CONTAINER = 2000; // 2 seconds per container
+    
+    /**
+     * Get truck for loading containers
+     * Handles truck assignment, bay allocation, and congestion
+     * @param containerQueueSize Current size of container queue
+     * @return Truck ready for loading
+     * @throws InterruptedException if thread is interrupted
+     */
     public Truck getTruckForLoading(int containerQueueSize) throws InterruptedException {
-        // No dispatch pause logic here - packing pauses instead
-        
         bayLock.lock();
         try {
             // First, try to find an existing truck with space
@@ -36,6 +46,10 @@ public class LoadingBay {
                 Truck newTruck = new Truck(truckCounter.getAndIncrement());
                 currentTrucks.put(newTruck.getId(), newTruck);
                 totalTrucksCreated.incrementAndGet();
+                
+                System.out.printf("LoadingBay: Truck-%d assigned to bay (Thread: %s)%n", 
+                    newTruck.getId(), Thread.currentThread().getName());
+                
                 return newTruck;
             } else {
                 // No bay available - truck must wait
@@ -52,6 +66,10 @@ public class LoadingBay {
                 Truck newTruck = new Truck(truckCounter.getAndIncrement());
                 currentTrucks.put(newTruck.getId(), newTruck);
                 totalTrucksCreated.incrementAndGet();
+                
+                System.out.printf("LoadingBay: Truck-%d assigned to bay after waiting (Thread: %s)%n", 
+                    newTruck.getId(), Thread.currentThread().getName());
+                
                 return newTruck;
             }
         } finally {
@@ -59,6 +77,12 @@ public class LoadingBay {
         }
     }
     
+    /**
+     * Process truck departure and update statistics
+     * @param truck Departing truck
+     * @param waitTimes List to record wait times
+     * @param loadTimes List to record load times
+     */
     public void truckDeparted(Truck truck, List<Long> waitTimes, List<Long> loadTimes) {
         bayLock.lock();
         try {
@@ -67,28 +91,117 @@ public class LoadingBay {
             
             // Calculate truck timing statistics
             long currentTime = System.currentTimeMillis();
-            long waitTime = currentTime - truck.getCreationTime();
-            waitTimes.add(waitTime);
-            loadTimes.add(waitTime); // Simplified for this simulation
+            long totalTime = currentTime - truck.getCreationTime();
+            
+            // Record timing statistics
+            if (waitTimes != null) {
+                waitTimes.add(totalTime);
+            }
+            if (loadTimes != null) {
+                loadTimes.add(totalTime); // Simplified - total time as load time
+            }
+            
+            System.out.printf("LoadingBay: Truck-%d departed, bay freed (Thread: %s)%n", 
+                truck.getId(), Thread.currentThread().getName());
             
         } finally {
             bayLock.unlock();
         }
     }
     
+    /**
+     * Get number of available loading bays
+     * @return Number of free bays
+     */
     public int getAvailableBays() {
         return bayAvailability.availablePermits();
     }
     
+    /**
+     * Get number of containers waiting for trucks
+     * @return Waiting container count
+     */
     public int getWaitingContainers() {
         return containersWaiting.get();
     }
     
+    /**
+     * Get total number of trucks created
+     * @return Total trucks created since simulation start
+     */
     public int getTotalTrucksCreated() {
         return totalTrucksCreated.get();
     }
     
+    /**
+     * Get number of currently active trucks
+     * @return Number of trucks currently being loaded
+     */
     public int getActiveTrucks() {
         return currentTrucks.size();
+    }
+    
+    /**
+     * Get current truck details
+     * @return Map of active trucks with their details
+     */
+    public Map<Integer, String> getActiveTruckDetails() {
+        Map<Integer, String> details = new HashMap<>();
+        for (Map.Entry<Integer, Truck> entry : currentTrucks.entrySet()) {
+            Truck truck = entry.getValue();
+            details.put(entry.getKey(), 
+                String.format("Truck-%d: %d/%d containers", 
+                    truck.getId(), truck.getContainerCount(), CONTAINERS_PER_TRUCK));
+        }
+        return details;
+    }
+    
+    /**
+     * Check if loading bay is at capacity
+     * @return true if all bays are occupied
+     */
+    public boolean isAtCapacity() {
+        return bayAvailability.availablePermits() == 0;
+    }
+    
+    /**
+     * Get bay utilization percentage
+     * @return Percentage of bays currently in use
+     */
+    public double getBayUtilization() {
+        int occupiedBays = MAX_BAYS - bayAvailability.availablePermits();
+        return (occupiedBays * 100.0) / MAX_BAYS;
+    }
+    
+    /**
+     * Get estimated loading time for a truck
+     * @param containerCount Number of containers to load
+     * @return Estimated time in milliseconds
+     */
+    public long getEstimatedLoadingTime(int containerCount) {
+        return containerCount * LOADING_TIME_PER_CONTAINER;
+    }
+    
+    /**
+     * Force departure of all current trucks (for simulation end)
+     * @return Number of trucks that were forced to depart
+     */
+    public int forceAllTrucksDeparture() {
+        bayLock.lock();
+        try {
+            int departedCount = 0;
+            for (Truck truck : new ArrayList<>(currentTrucks.values())) {
+                if (truck.getContainerCount() > 0) {
+                    System.out.printf("LoadingBay: Forcing departure of Truck-%d with %d containers%n", 
+                        truck.getId(), truck.getContainerCount());
+                    currentTrucks.remove(truck.getId());
+                    bayAvailability.release();
+                    departedCount++;
+                }
+            }
+            return departedCount;
+        } finally {
+            bayLock.unlock();
+        }
     }
 }
