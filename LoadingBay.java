@@ -183,6 +183,35 @@ public class LoadingBay {
     }
     
     /**
+     * Force dispatch trucks that have been waiting too long
+     * @param maxWaitTimeMs Maximum wait time in milliseconds
+     * @return Number of trucks that were force dispatched
+     */
+    public int forceDispatchOldTrucks(long maxWaitTimeMs) {
+        bayLock.lock();
+        try {
+            int dispatchedCount = 0;
+            long currentTime = System.currentTimeMillis();
+            
+            for (Truck truck : new ArrayList<>(currentTrucks.values())) {
+                long truckAge = currentTime - truck.getCreationTime();
+                if (truckAge > maxWaitTimeMs && truck.getContainerCount() > 0) {
+                    System.out.printf("LoadingBay: Force dispatching Truck-%d (waited %.1f seconds with %d containers)%n", 
+                        truck.getId(), truckAge / 1000.0, truck.getContainerCount());
+                    
+                    truck.setStatus("FORCE_DEPARTED");
+                    currentTrucks.remove(truck.getId());
+                    bayAvailability.release();
+                    dispatchedCount++;
+                }
+            }
+            return dispatchedCount;
+        } finally {
+            bayLock.unlock();
+        }
+    }
+    
+    /**
      * Force departure of all current trucks (for simulation end)
      * @return Number of trucks that were forced to depart
      */

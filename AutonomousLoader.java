@@ -84,6 +84,14 @@ public class AutonomousLoader {
         // Check if truck is now full and ready to dispatch
         if (truck.isFull()) {
             dispatchTruck(truck);
+        } else {
+            // Check if truck should be dispatched due to timeout (30 seconds max wait)
+            long truckAge = System.currentTimeMillis() - truck.getCreationTime();
+            if (truckAge > 30000 && truck.getContainerCount() > 0) { // 30 seconds timeout
+                System.out.printf("Loader-%d: Dispatching Truck-%d due to timeout (%d containers, %.1f seconds old) (Thread: %s)%n",
+                    loaderId, truck.getId(), truck.getContainerCount(), truckAge / 1000.0, Thread.currentThread().getName());
+                dispatchTruck(truck);
+            }
         }
     }
     

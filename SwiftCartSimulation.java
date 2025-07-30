@@ -31,7 +31,7 @@ public class SwiftCartSimulation {
     // Thread pools for different stations
     private final ExecutorService orderIntakeExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService pickingExecutor = Executors.newFixedThreadPool(4);
-    private final ExecutorService packingExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService packingExecutor = Executors.newFixedThreadPool(3);
     private final ExecutorService labellingExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService sortingExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService loadingExecutor = Executors.newFixedThreadPool(3);
@@ -105,6 +105,9 @@ public class SwiftCartSimulation {
         // Schedule simulation end after 5 minutes
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(this::stopSimulation, SIMULATION_DURATION_MS, TimeUnit.MILLISECONDS);
+        
+        // Schedule periodic truck dispatch check every 15 seconds
+        scheduler.scheduleAtFixedRate(this::checkAndDispatchWaitingTrucks, 15, 15, TimeUnit.SECONDS);
         
         // Monitor progress every 30 seconds
         monitorProgress();
@@ -182,41 +185,44 @@ public class SwiftCartSimulation {
      * Includes scanner verification and capacity constraints
      */
     private void startPackingStation() {
-        packingExecutor.submit(() -> {
-            Thread.currentThread().setName("Packer-1");
-            PackingStation packingStation = new PackingStation(packingLock);
-            
-            while (simulationRunning) {
-                try {
-                    // Check loading bay capacity constraint (10 containers max)
-                    if (loadingQueue.size() >= 10) {
-                        System.out.printf("Supervisor: Dispatch paused. %d containers at bay – waiting for truck.%n", 
-                            loadingQueue.size());
-                        Thread.sleep(2000); // Pause packing when bay is full
-                        continue;
-                    }
-                    
-                    Order order = packingQueue.poll(1, TimeUnit.SECONDS);
-                    if (order != null) {
-                        Order packedOrder = packingStation.packOrder(order);
-                        if (packedOrder != null) {
-                            System.out.printf("PackingStation: Packed Order #%d (Thread: %s)%n", 
-                                order.getId(), Thread.currentThread().getName());
-                            labellingQueue.put(packedOrder);
-                            boxesPacked.incrementAndGet();
-                        } else {
-                            totalRejected.incrementAndGet();
+        for (int i = 1; i <= 3; i++) {
+            final int packerId = i;
+            packingExecutor.submit(() -> {
+                Thread.currentThread().setName("Packer-" + packerId);
+                PackingStation packingStation = new PackingStation(packingLock);
+                
+                while (simulationRunning) {
+                    try {
+                        // Check loading bay capacity constraint (15 containers max - increased for better flow)
+                        if (loadingQueue.size() >= 15) {
+                            System.out.printf("Supervisor: Dispatch paused. %d containers at bay – waiting for truck.%n",
+                                loadingQueue.size());
+                            Thread.sleep(1000); // Reduced pause time for better flow
+                            continue;
                         }
+                        
+                        Order order = packingQueue.poll(1, TimeUnit.SECONDS);
+                        if (order != null) {
+                            Order packedOrder = packingStation.packOrder(order);
+                            if (packedOrder != null) {
+                                System.out.printf("PackingStation: Packed Order #%d (Thread: %s)%n",
+                                    order.getId(), Thread.currentThread().getName());
+                                labellingQueue.put(packedOrder);
+                                boxesPacked.incrementAndGet();
+                            } else {
+                                totalRejected.incrementAndGet();
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        System.out.println("Packer-" + packerId + " interrupted during shutdown");
+                        break;
+                    } catch (Exception e) {
+                        System.err.println("Packer-" + packerId + " error: " + e.getMessage());
                     }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    System.out.println("Packer interrupted during shutdown");
-                    break;
-                } catch (Exception e) {
-                    System.err.println("Packing error: " + e.getMessage());
                 }
-            }
-        });
+            });
+        }
     }
     
     /**
@@ -371,6 +377,9 @@ public class SwiftCartSimulation {
         shutdownExecutor(sortingExecutor, "Sorting");
         shutdownExecutor(loadingExecutor, "Loading");
         
+        // Force dispatch any remaining trucks before final statistics
+        forceDispatchRemainingTrucks();
+        
         // Generate final statistics report
         printFinalStatistics();
     }
@@ -507,6 +516,38 @@ public class SwiftCartSimulation {
         
         System.out.println("=".repeat(60));
         System.out.println("Simulation completed successfully!");
+    }
+    
+    /**
+     * Check for trucks waiting too long and force dispatch them
+     */
+    private void checkAndDispatchWaitingTrucks() {
+        if (!simulationRunning) return;
+        
+        try {
+            int forcedDispatches = loadingBay.forceDispatchOldTrucks(30000); // 30 second timeout
+            if (forcedDispatches > 0) {
+                trucksDispatched.addAndGet(forcedDispatches);
+                System.out.printf("Supervisor: Force dispatched %d trucks due to timeout%n", forcedDispatches);
+            }
+        } catch (Exception e) {
+            System.err.println("Error during periodic truck dispatch check: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Force dispatch all remaining trucks at simulation end
+     */
+    private void forceDispatchRemainingTrucks() {
+        try {
+            int remainingTrucks = loadingBay.forceAllTrucksDeparture();
+            if (remainingTrucks > 0) {
+                trucksDispatched.addAndGet(remainingTrucks);
+                System.out.printf("Simulation End: Force dispatched %d remaining trucks%n", remainingTrucks);
+            }
+        } catch (Exception e) {
+            System.err.println("Error during final truck dispatch: " + e.getMessage());
+        }
     }
     
     /**
