@@ -1,10 +1,6 @@
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Reject Handler - Processes and logs rejected orders from all stations
- * Ensures defective orders are properly handled and removed from the system
- */
 public class RejectHandler {
     private final BlockingQueue<Order> rejectedOrders;
     private final AtomicInteger totalRejectedCount;
@@ -19,7 +15,7 @@ public class RejectHandler {
         try {
             order.setStatus("REJECTED_" + reason.toUpperCase().replace(" ", "_"));
             rejectedOrders.put(order);
-            System.out.printf("RejectHandler: Order #%d rejected - %s (Thread: %s)%n", 
+            System.out.printf("RejectHandler: Order #%d rejected - %s (Thread: %s)%n",
                 order.getId(), reason, Thread.currentThread().getName());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -45,11 +41,9 @@ public class RejectHandler {
     }
     
     private void processRejectedOrder(Order order) {
-        // Log the rejection details
-        System.out.printf("RejectHandler: Processing rejected Order #%d - Status: %s (Thread: %s)%n", 
+        System.out.printf("RejectHandler: Processing rejected Order #%d - Status: %s (Thread: %s)%n",
             order.getId(), order.getStatus(), Thread.currentThread().getName());
         
-        // Simulate processing time for rejection handling
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
@@ -66,22 +60,15 @@ public class RejectHandler {
     public int getPendingRejects() {
         return rejectedOrders.size();
     }
-    /**
-     * Logs audit information for rejected orders with timing details
-     */
+    
     public void logRejectionAudit(Order order, double processingTimeSeconds) {
         System.out.printf("RejectHandler: AUDIT LOG - Order #%d rejected after %.2f seconds - Status: %s (Thread: %s)%n",
             order.getId(), processingTimeSeconds, order.getStatus(), Thread.currentThread().getName());
     }
     
-    /**
-     * Enhanced rejection processing with audit logging
-     */
     public void processRejectedOrderWithAudit(Order order, double processingTimeSeconds) {
-        // Log the rejection details with timing
         logRejectionAudit(order, processingTimeSeconds);
         
-        // Process the rejected order
         processRejectedOrder(order);
     }
 }
