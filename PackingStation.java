@@ -124,17 +124,7 @@ public class PackingStation {
      * @param order Order to verify
      * @return true if contents match
      */
-    private boolean verifyContentsOptimized(Order order) {
-        // Optimized verification process - faster per-item checking
-        try {
-            Thread.sleep(CONTENT_VERIFICATION_TIME_PER_ITEM * order.getItems().size());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        }
-        
-        return random.nextDouble() < 0.995;
-    }
+
     
     public boolean isBusy() {
         synchronized (packingLock) {
